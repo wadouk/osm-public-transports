@@ -18,12 +18,18 @@
 </head>
 <body>
 <div id="mapid"></div>
+<a href="https://github.com/wadouk/osm-public-transports" style="z-index: 10"><img style="position: absolute; z-index: 1000; top: 0; left: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_left_gray_6d6d6d.png" alt="Fork me on GitHub"></a>
 <script language="JavaScript" type="application/javascript">
   document.addEventListener('DOMContentLoaded', function () {
-    var map = L.map('mapid').setView([48.8609, 2.3466], 13)
+    var map = L.map('mapid', {
+      zoomControl: false
+    }).setView([48.8609, 2.3466], 13)
 
     L.mapboxGL({
-      attribution: '<a href="http://www.openmaptiles.org/" target="_blank">© OpenMapTiles</a> © <a href="http://osm.org/copyright">OpenStreetMap</a> contributors',
+      attribution: '' +
+      '<a href="http://leafletjs.com" target="_blank">Leaflet</a>' +
+      '<a href="http://www.openmaptiles.org/" target="_blank">© OpenMapTiles</a>' +
+      ' © <a href="http://osm.org/copyright">OpenStreetMap</a> contributors',
       accessToken: 'not-needed',
       style: 'https://free.tilehosting.com/styles/basic/style.json?key=Cib18YVHlgGgsXyYFzPN'
     }).addTo(map)
@@ -44,7 +50,7 @@
       return [coord[1], coord[0]]
     }
 
-    const Control = L.Control.extend({
+    const Button = L.Control.extend({
       getContainer: function () {
         const button = document.createElement('button')
         button.innerHTML = this.options.label
@@ -93,8 +99,9 @@
       }
     }
 
-    new Control({label: 'Subway', click: geojson('subway.geojson')}).addTo(map) // metro
-    new Control({label: 'Tram', click: geojson('tram.geojson')}).addTo(map) // tram
+    new Button({label: 'subway', click: geojson('subway.geojson')}).addTo(map)
+    new Button({label: 'tram', click: geojson('tram.geojson')}).addTo(map)
+    L.control.zoom({position: 'topright'}).addTo(map)
 
   })
 </script>
