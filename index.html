@@ -1,7 +1,7 @@
 <html>
 <head>
     <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
-    <script src="https://cdn.klokantech.com/mapbox-gl-js/v0.43.0/mapbox-gl.js"></script>
+    <script src="//unpkg.com/mapbox-gl@0.44.2/dist/mapbox-gl.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.1/dist/leaflet.css"/>
     <script src="//unpkg.com/leaflet@1.3.1/dist/leaflet.js"></script>
     <script src="leaflet-mapbox-gl.js"></script>
@@ -27,7 +27,8 @@
       accessToken: 'not-needed',
       style: 'https://free.tilehosting.com/styles/basic/style.json?key=Cib18YVHlgGgsXyYFzPN'
     }).addTo(map)
-    function colorPoint(p) {
+
+    function colorPoint (p) {
       let t = (p['@relations'] || []).filter(r => r.reltags.colour).slice(-1)[0]
       return t && t.reltags.colour
     }
@@ -38,32 +39,63 @@
       Point: colorPoint,
       Polygon: colorPoint,
     }
-    function latlng(coord) {
+
+    function latlng (coord) {
       return [coord[1], coord[0]]
     }
 
-    fetch('export.geojson').then(function (response) {
-      response.json().then(blob => {
-        L.geoJSON(blob, {
-          style: feature => ({color: colors[feature.geometry.type](feature.properties)}),
-          pointToLayer: feature => L.featureGroup([
-            L.circleMarker(L.latLng(latlng(feature.geometry.coordinates)), {
-              color: colors[feature.geometry.type](feature.properties),
-              fillColor: "#e2e2e2",
-              fill: true,
-              fillOpacity: 1,
-              radius: 5
-            }).bindTooltip(feature.properties.name),
-          ]),
-          onEachFeature: (feature, layer) => {
-            layer.bindPopup(Object.entries(feature.properties).filter(v => v[0] !== '@relations').map((v) => `${v[0]}=${v[1]}`).join('<br>'))
-          },
-          filter: (f) => {
-            return f.properties.name;
-          }
-        }).addTo(map)
-      })
+    const Control = L.Control.extend({
+      getContainer: function () {
+        const button = document.createElement('button')
+        button.innerHTML = this.options.label
+        button.addEventListener('click', this.options.click)
+        return button
+      },
+
+      onAdd: function (map) {
+        this._map = map
+        return this.getContainer()
+      }
     })
+
+    function geojson (file) {
+      return () => {
+        map.eachLayer(layer => {
+          if (layer instanceof L.FeatureGroup) {
+            layer.remove()
+          }
+        })
+        fetch(file).then(function (response) {
+          response.json().then(blob => {
+            L.geoJSON(blob, {
+              style: feature => ({color: colors[feature.geometry.type](feature.properties) || '#641613'}),
+              pointToLayer: feature => L.featureGroup([
+                L.circleMarker(L.latLng(latlng(feature.geometry.coordinates)), {
+                  color: colors[feature.geometry.type](feature.properties),
+                  fillColor: '#e2e2e2',
+                  fill: true,
+                  fillOpacity: 1,
+                  radius: 5
+                }).bindTooltip(feature.properties.name),
+              ]),
+              onEachFeature: (feature, layer) => {
+                layer.bindPopup(Object.entries(feature.properties)
+                  .filter(v => v[0] !== '@relations')
+                  .map((v) => `${v[0]}=${v[1]}`)
+                  .join('<br>'))
+              },
+              filter: (f) => {
+                return f.properties.name
+              }
+            }).addTo(map)
+          })
+        })
+      }
+    }
+
+    new Control({label: 'Subway', click: geojson('subway.geojson')}).addTo(map) // metro
+    new Control({label: 'Tram', click: geojson('tram.geojson')}).addTo(map) // tram
+
   })
 </script>
 </body>
