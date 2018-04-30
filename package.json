@@ -1,0 +1,10 @@
+{
+  "name": "osm-public-transport",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "leaflet": "^1.3.1",
+    "liveserver": "^0.1.20"
+  }
+}
