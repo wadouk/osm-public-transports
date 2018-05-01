@@ -58,6 +58,18 @@
       }
     })
 
+    function attr(k, v) {
+      const keys = {}
+      keys['@id']= (v) => `<a href="https://openstreetmap.org/${v}" target="_blank">${v}</a>`
+      keys['@relations'] = (v) => v.map(i => `<a href="https://openstreetmap.org/relation/${i['rel']}" target="_blank">${i.reltags['name']}</a>`).join('<br>')
+      return (keys[k] && keys[k](v)) || v
+    }
+
+    function dumpProps(o) {
+      return o ? Object.entries(o)
+        .map((v) => `<b>${v[0]}</b>=${attr(v[0], v[1])}`) : []
+    }
+
     function geojson (file) {
       return () => {
         map.eachLayer(layer => {
@@ -79,9 +91,7 @@
                 }).bindTooltip(feature.properties.name),
               ]),
               onEachFeature: (feature, layer) => {
-                layer.bindPopup(Object.entries(feature.properties)
-                  .filter(v => v[0] !== '@relations')
-                  .map((v) => `${v[0]}=${v[1]}`)
+                layer.bindPopup(dumpProps(feature.properties)
                   .join('<br>'))
               },
               filter: (f) => {
