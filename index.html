@@ -34,16 +34,10 @@
       style: 'https://free.tilehosting.com/styles/basic/style.json?key=Cib18YVHlgGgsXyYFzPN'
     }).addTo(map)
 
+    const findColor = (p) => p.colour || colorPoint(p)
     function colorPoint (p) {
       let t = (p['@relations'] || []).filter(r => r.reltags.colour).slice(-1)[0]
       return t && t.reltags.colour
-    }
-
-    const colors = {
-      LineString: (p) => p.colour || colorPoint(p),
-      MultiLineString: (p) => p.colour || colorPoint(p),
-      Point: colorPoint,
-      Polygon: colorPoint,
     }
 
     function latlng (coord) {
@@ -74,10 +68,10 @@
         fetch(file).then(function (response) {
           response.json().then(blob => {
             L.geoJSON(blob, {
-              style: feature => ({color: colors[feature.geometry.type](feature.properties) || '#641613'}),
+              style: feature => ({color: findColor(feature.properties) || '#31302f'}),
               pointToLayer: feature => L.featureGroup([
                 L.circleMarker(L.latLng(latlng(feature.geometry.coordinates)), {
-                  color: colors[feature.geometry.type](feature.properties),
+                  color: findColor(feature.properties),
                   fillColor: '#e2e2e2',
                   fill: true,
                   fillOpacity: 1,
