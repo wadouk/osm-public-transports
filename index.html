@@ -34,6 +34,9 @@
   style="position: absolute; z-index: 1000; top: 0; left: 0; border: 0;"
   src="https://s3.amazonaws.com/github/ribbons/forkme_left_gray_6d6d6d.png" alt="Fork me on GitHub"></a>
 <script language="JavaScript" type="application/javascript">
+  if (!localStorage.dataHost) {
+    localStorage.dataHost = 'https://data-osm-public-transport.5apps.com'
+  }
   document.addEventListener('DOMContentLoaded', function () {
     const map = L.map('mapid', {
       center: [27.293689, 5.449219],
@@ -99,14 +102,14 @@
             layer.remove()
           }
         })
-        fetch(`//localhost:5000/geohashes/${centerGeohash}.json`).then(function (response) {
+        fetch(`${localStorage.dataHost}/geohashes/${centerGeohash}.json`).then(function (response) {
           return response.ok && response.json()
             .then(relations => {
               relations
                 .filter(r => new RegExp(`${file}`).test(r))
                 .map(r => r.replace(/(.+)\.osm/, (match, p1) => `${p1}.pbf`))
                 .map(relationMasterId => {
-                  return fetch(`//localhost:5000/pbf/${relationMasterId}`)
+                  return fetch(`${localStorage.dataHost}/pbf/${relationMasterId}`)
                     .then(response => response.ok ? response.arrayBuffer() : Promise.reject())
                     .then(arrayBuffer => {
                       return new Promise((resolve, reject) => {
@@ -170,7 +173,7 @@
     L.control.zoom({position: 'topright'}).addTo(map)
 
     let hashes = new Set()
-    fetch(`//localhost:5000/geohashes.csv`)
+    fetch(`${localStorage.dataHost}/geohashes.csv`)
       .then(response => response.ok && response.text())
       .then(text => {
         text.split('\n').map(line => {
