@@ -1,46 +1,59 @@
 <html>
 <head>
-    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
-    <script src="//unpkg.com/mapbox-gl@0.44.2/dist/mapbox-gl.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.1/dist/leaflet.css"/>
-    <script src="//unpkg.com/leaflet@1.3.1/dist/leaflet.js"></script>
-    <script src="leaflet-mapbox-gl.js"></script>
-    <link rel="stylesheet" href="https://cdn.klokantech.com/mapbox-gl-js/v0.43.0/mapbox-gl.css"/>
-    <style>
-        #mapid {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            right: 0;
-            left: 0;
-        }
-    </style>
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no"/>
+  <link rel="stylesheet" href="//unpkg.com/leaflet@1.3.1/dist/leaflet.css"/>
+  <script src="//unpkg.com/leaflet@1.3.1/dist/leaflet.js"></script>
+  <script type="text/javascript" src="//unpkg.com/leaflet-providers@1.3.0/leaflet-providers.js"></script>
+  <script type="text/javascript" src="//unpkg.com/osm-read@0.6.0/osm-read-pbf.js"></script>
+  <script type="text/javascript" src="https://unpkg.com/osmtogeojson@3.0.0-beta.3/osmtogeojson.js"></script>
+  <script src="//bundle.run/latlon-geohash@1.1.0"></script>
+  <style>
+    #mapid {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      right: 0;
+      left: 0;
+    }
+
+    .shouldZoom {
+      width: 100%;
+      text-align: center;
+      position: absolute;
+      top: 0;
+      z-index: 500;
+      background-color: #fdfdfd;
+    }
+
+  </style>
 </head>
 <body>
 <div id="mapid"></div>
-<a href="https://github.com/wadouk/osm-public-transports" style="z-index: 10"><img style="position: absolute; z-index: 1000; top: 0; left: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_left_gray_6d6d6d.png" alt="Fork me on GitHub"></a>
+<div class="shouldZoom">You should zoom to see something, red rectangle, no transport, green there is transports to query</div>
+<a href="https://github.com/wadouk/osm-public-transports" style="z-index: 10"><img
+  style="position: absolute; z-index: 1000; top: 0; left: 0; border: 0;"
+  src="https://s3.amazonaws.com/github/ribbons/forkme_left_gray_6d6d6d.png" alt="Fork me on GitHub"></a>
 <script language="JavaScript" type="application/javascript">
   document.addEventListener('DOMContentLoaded', function () {
-    var map = L.map('mapid', {
-      zoomControl: false
-    }).setView([48.8609, 2.3466], 13)
-
-    L.mapboxGL({
+    const map = L.map('mapid', {
+      center: [27.293689, 5.449219],
+      zoom: 3,
       attribution: '' +
-      '<a href="http://leafletjs.com" target="_blank">Leaflet</a>' +
-      '<a href="http://www.openmaptiles.org/" target="_blank">© OpenMapTiles</a>' +
-      ' © <a href="http://osm.org/copyright">OpenStreetMap</a> contributors',
+        '<a href="http://leafletjs.com" target="_blank">Leaflet</a>' +
+        ' © <a href="http://osm.org/copyright">OpenStreetMap</a> contributors',
       accessToken: 'not-needed',
-      style: 'https://free.tilehosting.com/styles/basic/style.json?key=Cib18YVHlgGgsXyYFzPN'
-    }).addTo(map)
+    })
+    L.tileLayer.provider("Hydda.Full").addTo(map)
 
-    const findColor = (p) => p.colour || colorPoint(p)
-    function colorPoint (p) {
-      let t = (p['@relations'] || []).filter(r => r.reltags.colour).slice(-1)[0]
-      return t && t.reltags.colour
-    }
+    const findColor = (p, defaultColor) => p.features
+      .map(f => f.properties.relations)
+      .filter(Boolean)
+      .reduce((a, b) => a.concat(b), [])
+      .map(f => f.reltags.colour)
+      .filter(Boolean)
+      .reduce((a, b) => a === defaultColor ? b : a, defaultColor)
 
-    function latlng (coord) {
+    function latlng(coord) {
       return [coord[1], coord[0]]
     }
 
@@ -58,55 +71,148 @@
       }
     })
 
+    function getCenterGeohash(l) {
+      return latlonGeohash.encode(l.lat % 360, l.lng % 360, 5)
+    }
+
     function attr(k, v) {
       const keys = {}
-      keys['@id']= (v) => `<a href="https://openstreetmap.org/${v}" target="_blank">${v}</a>`
-      keys['@relations'] = (v) => v.map(i => `<a href="https://openstreetmap.org/relation/${i['rel']}" target="_blank">${i.reltags['name']}</a>`).join('<br>')
+      keys['id']= (v) => `<a href="https://openstreetmap.org/${v}" target="_blank">${v}</a>`
+      keys['relations'] = (v) => v.map(i => `<a href="https://openstreetmap.org/relation/${i['rel']}" target="_blank">${i.reltags['name']}</a>`).join('<br>')
       return (keys[k] && keys[k](v)) || v
     }
 
     function dumpProps(o) {
       return o ? Object.entries(o)
-        .map((v) => `<b>${v[0]}</b>=${attr(v[0], v[1])}`) : []
+        .map(([key, value]) => `<b>${key}</b>=${attr(key, value)}`) : []
     }
 
-    function geojson (file) {
+
+    function geojson(file) {
       return () => {
+        let centerGeohash = getCenterGeohash(map.getCenter());
+        if (!hashes.has(centerGeohash)) {
+          return
+        }
         map.eachLayer(layer => {
           if (layer instanceof L.FeatureGroup) {
             layer.remove()
           }
         })
-        fetch(file).then(function (response) {
-          response.json().then(blob => {
-            L.geoJSON(blob, {
-              style: feature => ({color: findColor(feature.properties) || '#31302f'}),
-              pointToLayer: feature => L.featureGroup([
-                L.circleMarker(L.latLng(latlng(feature.geometry.coordinates)), {
-                  color: findColor(feature.properties),
-                  fillColor: '#e2e2e2',
-                  fill: true,
-                  fillOpacity: 1,
-                  radius: 5
-                }).bindTooltip(feature.properties.name),
-              ]),
-              onEachFeature: (feature, layer) => {
-                layer.bindPopup(dumpProps(feature.properties)
-                  .join('<br>'))
-              },
-              filter: (f) => {
-                return f.properties.name
-              }
-            }).addTo(map)
-          })
+        fetch(`//localhost:5000/geohashes/${centerGeohash}.json`).then(function (response) {
+          return response.ok && response.json()
+            .then(relations => {
+              relations
+                .filter(r => new RegExp(`${file}`).test(r))
+                .map(r => r.replace(/(.+)\.osm/, (match, p1) => `${p1}.pbf`))
+                .map(relationMasterId => {
+                  return fetch(`//localhost:5000/pbf/${relationMasterId}`)
+                    .then(response => response.ok ? response.arrayBuffer() : Promise.reject())
+                    .then(arrayBuffer => {
+                      return new Promise((resolve, reject) => {
+                        const data = []
+                        const push = (type) => (node) => data.push({type, ...node})
+                        const pushWay = (type) => (n) => {
+                          const {nodeRefs, ...rest} = n
+                          data.push({type, nodes: nodeRefs, ...rest})
+                        }
+                        pbfParser.parse({
+                          buffer: arrayBuffer,
+                          endDocument: () => resolve(data),
+                          bounds: push('bounds'),
+                          node: push('node'),
+                          way: pushWay('way'),
+                          relation: push('relation'),
+                          error: (msg) => reject(msg)
+                        });
+                      }).then((content) => {
+                        const blob = osmtogeojson({
+                          "version": 0.6,
+                          "generator": "Overpass API",
+                          "osm3s": {
+                            "timestamp_osm_base": "",
+                            "copyright": ""
+                          },
+                          "elements": content
+                        }, {flatProperties: false})
+
+                        L.geoJSON(blob, {
+                          style: _ => ({color: findColor(blob, '#31302f')}),
+                          pointToLayer: feature => L.featureGroup([
+                            L.circleMarker(L.latLng(latlng(feature.geometry.coordinates)), {
+                              color: findColor(blob),
+                              fillColor: '#e2e2e2',
+                              fill: true,
+                              fillOpacity: 1,
+                              radius: 5
+                            }).bindTooltip(feature.properties.tags.name),
+                          ]),
+                          onEachFeature: (feature, layer) => {
+                            const {id, properties} = feature
+                            const {tags, relations} = properties
+                            layer.bindPopup(dumpProps({id, ...tags, relations})
+                              .join('<br>'))
+                          },
+                          filter: (f) => f.properties.tags.name
+                        }).addTo(map)
+                      })
+                    })
+                })
+            })
         })
       }
     }
 
-    new Button({label: 'subway', click: geojson('subway.geojson')}).addTo(map)
-    new Button({label: 'tram', click: geojson('tram.geojson')}).addTo(map)
+    new Button({label: 'subway', click: geojson('subway')}).addTo(map)
+    new Button({label: 'tram', click: geojson('tram')}).addTo(map)
+    new Button({label: 'bus', click: geojson('bus')}).addTo(map)
+    new Button({label: 'train', click: geojson('train')}).addTo(map)
     L.control.zoom({position: 'topright'}).addTo(map)
 
+    let hashes = new Set()
+    fetch(`//localhost:5000/geohashes.csv`)
+      .then(response => response.ok && response.text())
+      .then(text => {
+        text.split('\n').map(line => {
+          hashes.add(line.split(':')[0])
+        })
+      })
+
+    let rectangle
+    function highlight(bounds, color) {
+      if (bounds) {
+        if (!rectangle) {
+          rectangle = L.rectangle(bounds).addTo(map)
+        } else {
+          rectangle.setBounds(bounds)
+        }
+      }
+      rectangle.setStyle({
+        color : color,
+        fill: false,
+      })
+    }
+
+    map.on('moveend load', () => {
+      try {
+        let center = map.getCenter();
+        let geohash = getCenterGeohash(center);
+        let bounds = latlonGeohash.bounds(geohash);
+        let ll1 = L.latLng(bounds.ne.lat, bounds.ne.lon);
+        let ll2 = L.latLng(bounds.sw.lat, bounds.sw.lon);
+        let p1 = map.latLngToLayerPoint(ll2);
+        let p2 = map.latLngToLayerPoint(ll1);
+        const diag = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2))
+        if (diag < 60) {
+          document.querySelector('.shouldZoom').style.display = 'block'
+        } else {
+          document.querySelector('.shouldZoom').style.display = 'none'
+        }
+        highlight(L.latLngBounds(ll1, ll2), hashes.has(geohash) ? '#8BFF6B' : '#FF8580')
+      } catch (e) {
+        console.error(e)
+      }
+    })
   })
 </script>
 </body>
