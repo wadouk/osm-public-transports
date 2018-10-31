@@ -5,7 +5,8 @@
   <script src="//unpkg.com/leaflet@1.3.1/dist/leaflet.js"></script>
   <script type="text/javascript" src="//unpkg.com/leaflet-providers@1.3.0/leaflet-providers.js"></script>
   <script type="text/javascript" src="//unpkg.com/osm-read@0.6.0/osm-read-pbf.js"></script>
-  <script type="text/javascript" src="https://unpkg.com/osmtogeojson@3.0.0-beta.3/osmtogeojson.js"></script>
+  <script type="text/javascript" src="//unpkg.com/osmtogeojson@3.0.0-beta.3/osmtogeojson.js"></script>
+  <script type="text/javascript" src="//unpkg.com/leaflet-hash@0.2.1/leaflet-hash.js"></script>
   <script src="//bundle.run/latlon-geohash@1.1.0"></script>
   <style>
     #mapid {
@@ -21,6 +22,7 @@
       text-align: center;
       position: absolute;
       top: 0;
+      left: 0;
       z-index: 500;
       background-color: #fdfdfd;
     }
@@ -48,6 +50,7 @@
       accessToken: 'not-needed',
     })
     L.tileLayer.provider("Hydda.Full").addTo(map)
+    new L.Hash(map)
 
     const findColor = (p, defaultColor) => p.features
       .map(f => f.properties.relations)
