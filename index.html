@@ -156,7 +156,7 @@
                             layer.bindPopup(dumpProps({id, ...tags, relations})
                               .join('<br>'))
                           },
-                          filter: (f) => f.properties.tags.name
+                          filter: (f) => (f.type === 'node' && f.properties.tags.name || f.type !== 'node')
                         }).addTo(map)
                       })
                     })
@@ -174,12 +174,13 @@
 
     let hashes = new Set()
     fetch(`${localStorage.dataHost}/geohashes.csv`)
-      .then(response => response.ok && response.text())
+      .then(response => response.ok && response.text() || Promise.reject())
       .then(text => {
         text.split('\n').map(line => {
           hashes.add(line.split(':')[0])
         })
       })
+      .catch(() => console.error('failed to get geohashes.csv, override localStorage.dataHost'))
 
     let rectangle
     function highlight(bounds, color) {
